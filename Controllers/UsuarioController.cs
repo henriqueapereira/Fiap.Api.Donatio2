@@ -1,6 +1,7 @@
 ﻿using Fiap.Api.Donation2.Models;
 using Fiap.Api.Donation2.Repository.Interface;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Fiap.Api.Donation2.Controllers
@@ -19,56 +20,111 @@ namespace Fiap.Api.Donation2.Controllers
 
         //retorna tds usuarios cadastradas
         [HttpGet]
-        public List<UsuarioModel> Get()
+        public ActionResult <IList<UsuarioModel>> Get()
         {
-            return (List<UsuarioModel>)_usuarioRepository.FindAll();
+            var usuarios = _usuarioRepository.FindAll();
+
+            if(usuarios != null && usuarios.Count > 0)
+            {
+                return Ok(usuarios);
+            } else
+            {
+                return NoContent();
+            }
         }
 
         //retorna 1 usuario
         [HttpGet("{id:int}")]
-        public UsuarioModel Get([FromRoute] int id)
+        public ActionResult <UsuarioModel> Get(int id)
         {
-            return _usuarioRepository.FindById(id);
-        }
+            var usuario = _usuarioRepository.FindById(id);
 
-        [HttpDelete("{id:int}")]
-        public string Delete([FromRoute] int id)
-        {
-            _usuarioRepository.Delete(id);
+            if(usuario != null)
+            {
+                return Ok(usuario);
+            } else
+            {
+                return NotFound();
+            }
 
-            return "Usuario removido com sucesso";
+            
         }
 
         //cadastra novos usuarios
         [HttpPost]
-        public int Post([FromBody] UsuarioModel usuarioModel)
+        public ActionResult<UsuarioModel> Post([FromBody] UsuarioModel usuarioModel)
         {
+            if ( ! ModelState.IsValid )
+            {
+                return BadRequest();
+            }
+
             _usuarioRepository.Insert(usuarioModel);
-            return usuarioModel.UsuarioId;
+
+            var url = Request.GetEncodedUrl().EndsWith("/") ?
+                Request.GetEncodedUrl() : 
+                Request.GetEncodedUrl() + "/";
+
+            url = url + usuarioModel.UsuarioId;
+
+            return Created(url + usuarioModel.UsuarioId, usuarioModel);
         }
 
         [HttpPut("{id:int}")]
         //chave que está alterando, objeto que está alterando
-        public bool Put([FromRoute] int id, [FromBody] UsuarioModel usuarioModel)
+        public ActionResult Put([FromRoute] int id, [FromBody] UsuarioModel usuarioModel)
         {
-            if (id == usuarioModel.UsuarioId)
+            if (!ModelState.IsValid )
+            {
+                return BadRequest();
+            }
+
+            if ( id != usuarioModel.UsuarioId)
+            {
+                return BadRequest();
+            } else
             {
                 _usuarioRepository.Update(usuarioModel);
+                return NoContent();
+            }
+                
 
-                return true;
-            }
-            else
-            {
-                return false;
-            }
         }
 
         [HttpPost]
         [Route("Login")]
-        public UsuarioModel Login([FromBody] UsuarioModel usuarioModel)
+        public ActionResult<UsuarioModel> Login([FromBody] UsuarioModel usuarioModel)
         {
-            return _usuarioRepository.FindByEmailAndSenha
+            var usuario =  _usuarioRepository.FindByEmailAndSenha
                 (usuarioModel.EmailUsuario, usuarioModel.Senha);
+
+            if ( usuario != null )
+            {
+                usuario.Senha = string.Empty;
+                return Ok(usuario);
+            } else
+            {
+                return NotFound();
+            }
+        }
+
+        [HttpDelete("{id:int}")]
+        public ActionResult Delete([FromRoute] int id)
+        {
+            if ( id == 0)
+            {
+                return BadRequest();
+            }
+            var usuario = _usuarioRepository.FindById(id);
+
+            if (usuario == null)
+            {
+                return NotFound();
+            }
+        
+                _usuarioRepository.Delete(id);
+                return NoContent();
+        
         }
     }
 }
